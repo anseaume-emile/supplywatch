@@ -1,0 +1,14 @@
+# HTTPS in front of Supply Watch (web UI and /mcp), with certificates from Caddy's own CA.
+# Clients must trust that CA's root once: see README, "HTTPS".
+# HTTPS_HOSTS (from .env): every name or IP clients use, comma-separated, e.g. "eans, 10.150.101.165, localhost".
+{
+	# The root CA lives in the caddy-data volume; installing it into this container's trust store is pointless.
+	skip_install_trust
+	# Clients connecting by IP send no SNI; serve them this name's certificate (set it to the server's IP).
+	default_sni {$HTTPS_DEFAULT_SNI:localhost}
+}
+
+{$HTTPS_HOSTS:localhost} {
+	tls internal
+	reverse_proxy supplywatch:8080
+}

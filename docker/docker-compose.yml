@@ -1,0 +1,41 @@
+# Supply Watch, no login. Keep it on the internal network / VPN only.
+# Served over HTTPS by Caddy on ports 443 (and 80, which redirects). Plain HTTP on 8080 is only open to this machine.
+# Run from the application root with the Makefile (make supplywatch-docker-up), or:
+#   docker compose --env-file .env -f docker/docker-compose.yml up -d
+# Relative paths below are relative to this docker/ folder.
+services:
+  supplywatch:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: cdds/supplywatch:latest
+    restart: unless-stopped
+    env_file: ../.env
+    ports:
+      - "127.0.0.1:8080:8080"   # local only; use "8080:8080" to also allow plain HTTP from the network
+    volumes:
+      - supplywatch-data:/data
+      # Local Altium projects (read-only), scanned through PROJECT_DIRS=/projects. Host path from .env.
+      - "${ALTIUM_PROJECTS_DIR:-../projects}:/projects:ro"
+      # Deploy key for SSH git remotes (set GIT_SSH_KEY=/run/secrets/git_key):
+      # - ../git_key:/run/secrets/git_key:ro
+
+  caddy:
+    image: caddy:2.10.2
+    restart: unless-stopped
+    depends_on: [supplywatch]
+    environment:
+      HTTPS_HOSTS: "${HTTPS_HOSTS:-localhost}"
+      HTTPS_DEFAULT_SNI: "${HTTPS_DEFAULT_SNI:-localhost}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data       # certificates and the root CA: keep it, or every client must trust a new root
+      - caddy-config:/config
+
+volumes:
+  supplywatch-data:
+  caddy-data:
+  caddy-config:
